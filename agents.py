@@ -14,7 +14,7 @@ if not gemini_api_key:
 llm_config = {
     "config_list": [
         {
-            "model": "gemini-2.0-flash", 
+            "model": "gemini-2.0-flash",  # ✅ 已更新：1.5-flash 已不支援
             "api_key": gemini_api_key,
             "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/"
         }
@@ -57,7 +57,7 @@ def process_customer_message(message_text: str) -> str:
             message=message_text,
             max_turns=1
         )
-        
+
         # 取得 CS Agent 的最後一次回覆
         last_msg = user_proxy.last_message()
         if last_msg and "content" in last_msg:
