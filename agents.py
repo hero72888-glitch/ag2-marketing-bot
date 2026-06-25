@@ -14,7 +14,7 @@ if not gemini_api_key:
 llm_config = {
     "config_list": [
         {
-            "api_type": "google", 
+            "api_type": "gemini", 
             "model": "gemini-1.5-pro", 
             "api_key": gemini_api_key
         }
@@ -64,7 +64,10 @@ def process_customer_message(message_text: str) -> str:
             return last_msg["content"]
         return "抱歉，目前客服人員忙碌中，請稍後再試！"
     except Exception as e:
-        print(f"Error processing message: {e}")
+        import traceback
+        print("====== 發生錯誤 ======")
+        traceback.print_exc()
+        print("======================")
         return "系統遇到一點小亂流，請稍後再試！"
 
 if __name__ == "__main__":
