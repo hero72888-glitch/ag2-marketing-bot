@@ -45,6 +45,7 @@ user_proxy = autogen.UserProxyAgent(
     system_message="人類老闆的代理人，負責最後審核或接手困難問題。",
     human_input_mode="NEVER",  # 雲端 24 小時運作時，設定為不等待終端機輸入
     max_consecutive_auto_reply=1,
+    code_execution_config=False, # 關閉程式碼執行功能，避免在雲端找不到 Docker 而當機
 )
 
 def process_customer_message(message_text: str) -> str:
