@@ -3,7 +3,10 @@ import logging
 from flask import Flask, request, jsonify, abort
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
-from linebot.models import MessageEvent, TextMessage, TextSendMessage
+from linebot.models import (
+    MessageEvent, TextMessage, TextSendMessage,
+    StickerMessage
+)
 from agents import process_customer_message
 
 # 設定結構化日誌
@@ -50,6 +53,25 @@ def handle_message(event):
     line_bot_api.reply_message(
         event.reply_token,
         TextSendMessage(text=reply)
+    )
+
+@handler.add(MessageEvent, message=StickerMessage)
+def handle_sticker(event):
+    """收到貼圖時，回覆親切的招呼"""
+    logger.info(f"客人傳了貼圖 (package: {event.message.package_id}, sticker: {event.message.sticker_id})")
+
+    # 隨機風格的親切回應
+    import random
+    greetings = [
+        "哈囉！😊 有什麼我可以幫您的嗎？想了解抓周派對的資訊都可以問我喔！",
+        "嗨嗨～歡迎來到大熊老師與蘋果老師的小天地！🐻🍎 需要什麼服務呢？",
+        "您好呀！👋 想為寶貝規劃一場難忘的抓周派對嗎？隨時問我喔！",
+        "哈囉哈囉～🎉 很高興收到您的訊息！有任何問題都歡迎詢問！",
+    ]
+
+    line_bot_api.reply_message(
+        event.reply_token,
+        TextSendMessage(text=random.choice(greetings))
     )
 
 if __name__ == '__main__':
