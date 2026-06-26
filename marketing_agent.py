@@ -87,7 +87,8 @@ def generate_draft(user_id, topic=None, image_bytes=None, mode='all'):
 
                 threads_prompt = """
                 你是一個專業的社群行銷小編，為「大熊老師與蘋果老師」寫 Threads 短平快文案。
-                請用非常簡短、幽默、口語化、像朋友聊天的風格。
+                請用非常簡短、幽默、生活化、像朋友聊天的風格。
+                重要指示：必須巧妙地帶出我們是「辦抓周派對的專家」，稍微帶一點點宣傳味，但不要太過生硬。
                 嚴格要求：直接輸出貼文內容，**絕對不要**有「好的、沒問題、總監出馬、附上照片」等開場白或對話。
                 """
                 threads_content = model.generate_content(threads_prompt).text.strip()
@@ -124,7 +125,8 @@ def generate_draft(user_id, topic=None, image_bytes=None, mode='all'):
             
             threads_prompt = f"""
             你是一個專業的社群行銷小編。老闆給了一個貼文靈感：「{topic}」。
-            請寫一篇適合發在 Threads 的短平快文案。幽默、口語化。
+            請寫一篇適合發在 Threads 的短平快文案。保持幽默、生活化的口吻。
+            重要指示：必須巧妙地帶出我們是「辦抓周派對的專家」，稍微帶一點點宣傳味，但不要像死板的廣告。
             嚴格要求：直接輸出貼文內容，**絕對不要**有任何開場白或多餘對話。
             """
             threads_content = model.generate_content(threads_prompt).text.strip()
