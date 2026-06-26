@@ -5,7 +5,7 @@ from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import (
     MessageEvent, TextMessage, TextSendMessage,
-    StickerMessage
+    StickerMessage, ImageMessage
 )
 from agents import process_customer_message
 import json
@@ -122,6 +122,42 @@ def handle_sticker(event):
         event.reply_token,
         TextSendMessage(text=random.choice(greetings))
     )
+
+@handler.add(MessageEvent, message=ImageMessage)
+def handle_image(event):
+    user_id = event.source.user_id
+    logger.info(f"收到圖片訊息 (來自: {user_id})")
+
+    admins = load_admins()
+    if user_id in admins:
+        # 老闆傳照片，觸發 IG 九宮格模式
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(text="【總監模式】收到照片！正在啟動九宮格裁切引擎，並準備發布 IG，這需要一點時間，請稍候...")
+        )
+        
+        # 下載圖片
+        message_content = line_bot_api.get_message_content(event.message.id)
+        image_bytes = b''
+        for chunk in message_content.iter_content():
+            image_bytes += chunk
+            
+        from marketing_agent import generate_and_post_marketing_content
+        
+        # 執行切圖與發布
+        result_msg = generate_and_post_marketing_content(image_bytes=image_bytes)
+        
+        # 推播結果
+        line_bot_api.push_message(
+            user_id,
+            TextSendMessage(text=result_msg)
+        )
+    else:
+        # 一般客人傳照片
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(text="好漂亮的照片呀！謝謝您的分享😊")
+        )
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
