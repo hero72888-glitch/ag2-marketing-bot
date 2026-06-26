@@ -5,7 +5,8 @@ from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import (
     MessageEvent, TextMessage, TextSendMessage,
-    StickerMessage, ImageMessage
+    StickerMessage, ImageMessage, PostbackEvent,
+    TemplateSendMessage, ButtonsTemplate, PostbackAction
 )
 from agents import process_customer_message
 import json
@@ -76,22 +77,40 @@ def handle_message(event):
     admins = load_admins()
     if user_id in admins:
         # 如果是老闆，就喚醒行銷總監 (階段三)
-        from marketing_agent import generate_and_post_marketing_content
+        from marketing_agent import generate_draft
         
-        # 暫時先回覆老闆正在處理中
         line_bot_api.reply_message(
             event.reply_token,
-            TextSendMessage(text=f"【總監模式】收到！正在為「{user_msg}」撰寫並發布社群貼文，請稍候...")
+            TextSendMessage(text=f"【總監模式】收到靈感！正在為您撰寫社群貼文草稿，請稍候...")
         )
         
-        # 執行發文 (這裡會稍微卡住幾秒鐘等待 AI 寫文和呼叫 API)
-        result_msg = generate_and_post_marketing_content(user_msg)
+        # 產生草稿
+        draft_data, preview_msg = generate_draft(user_id, topic=user_msg)
         
-        # 發布完成後，再次推播通知老闆 (因為 reply_token 只能用一次，所以改用 push_message)
-        line_bot_api.push_message(
-            user_id,
-            TextSendMessage(text=result_msg)
-        )
+        if draft_data:
+            # 傳送帶有確認按鈕的訊息
+            buttons_template = ButtonsTemplate(
+                title='草稿審核',
+                text='老闆，這是為您準備的草稿，請問要發布嗎？',
+                actions=[
+                    PostbackAction(label='✅ 確認發布', data='action=approve_post'),
+                    PostbackAction(label='❌ 取消重寫', data='action=reject_post')
+                ]
+            )
+            template_message = TemplateSendMessage(
+                alt_text='草稿審核 (請在手機上查看)',
+                template=buttons_template
+            )
+            
+            line_bot_api.push_message(
+                user_id,
+                [TextSendMessage(text=preview_msg), template_message]
+            )
+        else:
+            line_bot_api.push_message(
+                user_id,
+                TextSendMessage(text=preview_msg) # 錯誤訊息
+            )
         return
 
     # 一般客人模式
@@ -133,7 +152,7 @@ def handle_image(event):
         # 老闆傳照片，觸發 IG 九宮格模式
         line_bot_api.reply_message(
             event.reply_token,
-            TextSendMessage(text="【總監模式】收到照片！正在啟動九宮格裁切引擎，並準備發布 IG，這需要一點時間，請稍候...")
+            TextSendMessage(text="【總監模式】收到照片！正在啟動九宮格裁切引擎與撰寫 IG 草稿，這需要一點時間，請稍候...")
         )
         
         # 下載圖片
@@ -142,21 +161,63 @@ def handle_image(event):
         for chunk in message_content.iter_content():
             image_bytes += chunk
             
-        from marketing_agent import generate_and_post_marketing_content
+        from marketing_agent import generate_draft
         
-        # 執行切圖與發布
-        result_msg = generate_and_post_marketing_content(image_bytes=image_bytes)
+        # 產生草稿與切圖
+        draft_data, preview_msg = generate_draft(user_id, image_bytes=image_bytes)
         
-        # 推播結果
-        line_bot_api.push_message(
-            user_id,
-            TextSendMessage(text=result_msg)
-        )
+        if draft_data:
+            # 傳送帶有確認按鈕的訊息
+            buttons_template = ButtonsTemplate(
+                title='IG 九宮格草稿審核',
+                text='老闆，九宮格已經切好準備就緒，請問要發布嗎？',
+                actions=[
+                    PostbackAction(label='✅ 確認發布', data='action=approve_post'),
+                    PostbackAction(label='❌ 取消重寫', data='action=reject_post')
+                ]
+            )
+            template_message = TemplateSendMessage(
+                alt_text='草稿審核 (請在手機上查看)',
+                template=buttons_template
+            )
+            
+            line_bot_api.push_message(
+                user_id,
+                [TextSendMessage(text=preview_msg), template_message]
+            )
+        else:
+            line_bot_api.push_message(
+                user_id,
+                TextSendMessage(text=preview_msg) # 錯誤訊息
+            )
     else:
         # 一般客人傳照片
         line_bot_api.reply_message(
             event.reply_token,
             TextSendMessage(text="好漂亮的照片呀！謝謝您的分享😊")
+        )
+
+@handler.add(PostbackEvent)
+def handle_postback(event):
+    user_id = event.source.user_id
+    data = event.postback.data
+    logger.info(f"收到 Postback: {data} (來自: {user_id})")
+    
+    from marketing_agent import execute_post, clear_draft
+    
+    if data == 'action=approve_post':
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(text="收到！正在為您執行正式發布，請稍候...")
+        )
+        result_msg = execute_post(user_id)
+        line_bot_api.push_message(user_id, TextSendMessage(text=result_msg))
+        
+    elif data == 'action=reject_post':
+        clear_draft(user_id)
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(text="好的！這篇草稿已銷毀 🗑️，請給我新的照片或靈感來重寫一篇！")
         )
 
 if __name__ == '__main__':
