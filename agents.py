@@ -1,14 +1,16 @@
 import os
+import logging
 import autogen
 from dotenv import load_dotenv
 
 load_dotenv()
+logger = logging.getLogger(__name__)
 
-# 取出剛剛儲存的 Gemini API Key
+# 取出儲存的 Gemini API Key
 gemini_api_key = os.environ.get("GEMINI_API_KEY")
 
 if not gemini_api_key:
-    print("WARNING: 找不到 GEMINI_API_KEY")
+    logger.warning("WARNING: 找不到 GEMINI_API_KEY")
 
 # 設定 AG2 (AutoGen) 使用 Google Gemini 模型
 llm_config = {
@@ -32,7 +34,7 @@ cs_agent = autogen.AssistantAgent(
     llm_config=llm_config,
 )
 
-# 2. 建立行銷企劃 Agent (負責寫廣告)
+# 2. 建立行銷企劃 Agent (負責寫廣告) — 未來擴展用
 marketing_agent = autogen.AssistantAgent(
     name="Marketing_Agent",
     system_message="你是專業的行銷企劃，負責構思活動促銷貼文與自動推播廣告，語氣要吸引人、有活力。",
@@ -45,7 +47,7 @@ user_proxy = autogen.UserProxyAgent(
     system_message="人類老闆的代理人，負責最後審核或接手困難問題。",
     human_input_mode="NEVER",  # 雲端 24 小時運作時，設定為不等待終端機輸入
     max_consecutive_auto_reply=1,
-    code_execution_config=False, # 關閉程式碼執行功能，避免在雲端找不到 Docker 而當機
+    code_execution_config=False,  # 關閉程式碼執行功能，避免在雲端找不到 Docker 而當機
 )
 
 def process_customer_message(message_text: str) -> str:
@@ -58,16 +60,13 @@ def process_customer_message(message_text: str) -> str:
             max_turns=1
         )
         
-        # 取得 CS Agent 的最後一次回覆
-        last_msg = user_proxy.last_message()
+        # ✅ 修復：指定從 cs_agent 取得最後回覆
+        last_msg = user_proxy.last_message(cs_agent)
         if last_msg and "content" in last_msg:
             return last_msg["content"]
         return "抱歉，目前客服人員忙碌中，請稍後再試！"
     except Exception as e:
-        import traceback
-        print("====== 發生錯誤 ======")
-        traceback.print_exc()
-        print("======================")
+        logger.error(f"AG2 處理失敗: {e}", exc_info=True)
         return "系統遇到一點小亂流，請稍後再試！"
 
 if __name__ == "__main__":
