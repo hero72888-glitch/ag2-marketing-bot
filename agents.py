@@ -18,7 +18,7 @@ llm_config = {
         {
             "model": "gemini-1.5-flash", 
             "api_key": gemini_api_key,
-            "api_type": "google"
+            "api_type": "gemini"
         }
     ]
 }
