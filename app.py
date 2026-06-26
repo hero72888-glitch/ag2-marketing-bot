@@ -18,6 +18,9 @@ logger = logging.getLogger(__name__)
 
 ADMINS_FILE = 'admins.json'
 
+# 用來記錄老闆當前選擇的發文模式
+user_states = {}
+
 def load_admins():
     if os.path.exists(ADMINS_FILE):
         with open(ADMINS_FILE, 'r', encoding='utf-8') as f:
@@ -69,10 +72,22 @@ def handle_message(event):
     secret_passwords = ["大熊老闆", "貓咪老闆"]
     if user_msg in secret_passwords:
         save_admin(user_id)
-        line_bot_api.reply_message(
-            event.reply_token,
-            TextSendMessage(text=f"🫡 收到！身份確認完畢。歡迎登入，行銷總監隨時為您服務！\n(您的專屬ID已綁定：{user_id[:5]}...)")
+        
+        # 顯示發文模式選單
+        buttons_template = ButtonsTemplate(
+            title='總監模式啟動',
+            text='老闆好！請問這次要發布到哪些平台？選擇後請傳送照片！',
+            actions=[
+                PostbackAction(label='專攻 IG 九宮格', data='mode=ig'),
+                PostbackAction(label='發布 FB 與 Threads', data='mode=fb_threads'),
+                PostbackAction(label='三個我全都要', data='mode=all')
+            ]
         )
+        template_message = TemplateSendMessage(
+            alt_text='選擇發布平台 (請在手機上查看)',
+            template=buttons_template
+        )
+        line_bot_api.reply_message(event.reply_token, template_message)
         return
 
     admins = load_admins()
@@ -132,7 +147,6 @@ def handle_sticker(event):
     """收到貼圖時，回覆親切的招呼"""
     logger.info(f"客人傳了貼圖 (package: {event.message.package_id}, sticker: {event.message.sticker_id})")
 
-    # 隨機風格的親切回應
     import random
     greetings = [
         "哈囉！😊 有什麼我可以幫您的嗎？想了解抓周派對的資訊都可以問我喔！",
@@ -153,10 +167,18 @@ def handle_image(event):
 
     admins = load_admins()
     if user_id in admins:
-        # 老闆傳照片，觸發 IG 九宮格模式
+        # 讀取老闆剛才選擇的模式，預設為 all
+        mode = user_states.get(user_id, 'all')
+        
+        mode_text = "三個平台"
+        if mode == 'ig':
+            mode_text = "IG 九宮格"
+        elif mode == 'fb_threads':
+            mode_text = "FB 與 Threads"
+            
         line_bot_api.reply_message(
             event.reply_token,
-            TextSendMessage(text="【總監模式】收到照片！正在啟動裁切引擎與撰寫三平台草稿，這需要一點時間，請稍候...")
+            TextSendMessage(text=f"【總監模式】收到照片！正在啟動 {mode_text} 草稿引擎，這需要一點時間，請稍候...")
         )
         
         # 下載圖片
@@ -168,14 +190,14 @@ def handle_image(event):
         def process_image_draft():
             from marketing_agent import generate_draft
             
-            # 產生草稿與切圖
-            draft_data, preview_msg = generate_draft(user_id, image_bytes=image_bytes)
+            # 產生草稿與切圖 (根據模式)
+            draft_data, preview_msg = generate_draft(user_id, image_bytes=image_bytes, mode=mode)
             
             if draft_data:
                 # 傳送帶有確認按鈕的訊息
                 buttons_template = ButtonsTemplate(
                     title='貼文草稿審核',
-                    text='老闆，九宮格跟文案都準備就緒，請問要發布嗎？',
+                    text='老闆，草稿準備就緒，請確認上方文字，請問要發布嗎？',
                     actions=[
                         PostbackAction(label='✅ 確認發布', data='action=approve_post'),
                         PostbackAction(label='❌ 取消重寫', data='action=reject_post')
@@ -210,6 +232,21 @@ def handle_postback(event):
     user_id = event.source.user_id
     data = event.postback.data
     logger.info(f"收到 Postback: {data} (來自: {user_id})")
+    
+    if data.startswith('mode='):
+        mode = data.split('=')[1]
+        user_states[user_id] = mode
+        mode_text = "三個平台"
+        if mode == 'ig':
+            mode_text = "IG 九宮格"
+        elif mode == 'fb_threads':
+            mode_text = "FB 與 Threads"
+            
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(text=f"⚙️ 已為您切換至【{mode_text}】模式！\n請直接傳送您要發布的相片過來！")
+        )
+        return
     
     from marketing_agent import execute_post, clear_draft
     

@@ -1,6 +1,7 @@
 import os
 import requests
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -10,17 +11,25 @@ THREADS_ACCESS_TOKEN = os.environ.get('THREADS_ACCESS_TOKEN')
 THREADS_USER_ID = os.environ.get('THREADS_USER_ID')
 IG_USER_ID = os.environ.get('IG_USER_ID')
 
-def post_to_facebook(message):
-    """發布文字到 Facebook 粉絲專頁"""
+def post_to_facebook(message, image_url=None):
+    """發布文字(或附帶圖片)到 Facebook 粉絲專頁"""
     if not FB_PAGE_ACCESS_TOKEN or not FB_PAGE_ID:
         logger.error("缺少 FB API Tokens")
         return False
         
-    url = f"https://graph.facebook.com/v19.0/{FB_PAGE_ID}/feed"
-    payload = {
-        'message': message,
-        'access_token': FB_PAGE_ACCESS_TOKEN
-    }
+    if image_url:
+        url = f"https://graph.facebook.com/v19.0/{FB_PAGE_ID}/photos"
+        payload = {
+            'url': image_url,
+            'message': message,
+            'access_token': FB_PAGE_ACCESS_TOKEN
+        }
+    else:
+        url = f"https://graph.facebook.com/v19.0/{FB_PAGE_ID}/feed"
+        payload = {
+            'message': message,
+            'access_token': FB_PAGE_ACCESS_TOKEN
+        }
     
     response = requests.post(url, data=payload)
     if response.status_code == 200:
@@ -30,19 +39,27 @@ def post_to_facebook(message):
         logger.error(f"Facebook 發布失敗: {response.text}")
         return False
 
-def post_to_threads(text):
-    """發布文字到 Threads"""
+def post_to_threads(text, image_url=None):
+    """發布文字(或附帶圖片)到 Threads"""
     if not THREADS_ACCESS_TOKEN or not THREADS_USER_ID:
         logger.error("缺少 Threads API Tokens")
         return False
 
-    # 1. Create a Threads Media Container (Text only)
+    # 1. Create a Threads Media Container
     url = f"https://graph.threads.net/v1.0/{THREADS_USER_ID}/threads"
-    payload = {
-        'media_type': 'TEXT',
-        'text': text,
-        'access_token': THREADS_ACCESS_TOKEN
-    }
+    if image_url:
+        payload = {
+            'media_type': 'IMAGE',
+            'image_url': image_url,
+            'text': text,
+            'access_token': THREADS_ACCESS_TOKEN
+        }
+    else:
+        payload = {
+            'media_type': 'TEXT',
+            'text': text,
+            'access_token': THREADS_ACCESS_TOKEN
+        }
     
     res1 = requests.post(url, data=payload)
     if res1.status_code != 200:
@@ -119,5 +136,8 @@ def post_to_instagram_grid(image_urls, caption):
         else:
             logger.error(f"IG 圖片 {i+1} 發布失敗: {res2.text}")
             success = False
+            
+        # 加上 2 秒緩衝，防止 IG API 限制與排版錯位
+        time.sleep(2)
 
     return success

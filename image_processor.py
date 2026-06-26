@@ -74,3 +74,35 @@ def crop_and_upload_to_imgbb(image_path_or_bytes):
     except Exception as e:
         logger.error(f"裁切或上傳過程發生錯誤: {e}")
         return []
+
+def upload_single_image_to_imgbb(image_path_or_bytes):
+    """
+    將單張原始大圖直接上傳到 ImgBB，並回傳圖片公開網址。
+    """
+    if not IMGBB_API_KEY:
+        logger.error("缺少 IMGBB_API_KEY，無法上傳圖片。")
+        return None
+
+    try:
+        if isinstance(image_path_or_bytes, bytes):
+            img_bytes = image_path_or_bytes
+        else:
+            with open(image_path_or_bytes, "rb") as f:
+                img_bytes = f.read()
+
+        url = f"https://api.imgbb.com/1/upload?key={IMGBB_API_KEY}"
+        files = {
+            'image': ('original.jpg', img_bytes, 'image/jpeg')
+        }
+        
+        res = requests.post(url, files=files)
+        if res.status_code == 200:
+            data = res.json()
+            return data['data']['url']
+        else:
+            logger.error(f"ImgBB 單圖上傳失敗: {res.text}")
+            return None
+
+    except Exception as e:
+        logger.error(f"單圖上傳過程發生錯誤: {e}")
+        return None
