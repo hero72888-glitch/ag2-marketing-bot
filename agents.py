@@ -16,7 +16,7 @@ if not gemini_api_key:
 llm_config = {
     "config_list": [
         {
-            "model": "gemini-2.0-flash", 
+            "model": "gemini-1.5-flash", 
             "api_key": gemini_api_key,
             "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/"
         }
