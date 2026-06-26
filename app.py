@@ -10,6 +10,7 @@ from linebot.models import (
 )
 from agents import process_customer_message
 import json
+import threading
 
 # 設定結構化日誌
 logging.basicConfig(level=logging.INFO)
@@ -77,40 +78,43 @@ def handle_message(event):
     admins = load_admins()
     if user_id in admins:
         # 如果是老闆，就喚醒行銷總監 (階段三)
-        from marketing_agent import generate_draft
-        
         line_bot_api.reply_message(
             event.reply_token,
             TextSendMessage(text=f"【總監模式】收到靈感！正在為您撰寫社群貼文草稿，請稍候...")
         )
         
-        # 產生草稿
-        draft_data, preview_msg = generate_draft(user_id, topic=user_msg)
-        
-        if draft_data:
-            # 傳送帶有確認按鈕的訊息
-            buttons_template = ButtonsTemplate(
-                title='草稿審核',
-                text='老闆，這是為您準備的草稿，請問要發布嗎？',
-                actions=[
-                    PostbackAction(label='✅ 確認發布', data='action=approve_post'),
-                    PostbackAction(label='❌ 取消重寫', data='action=reject_post')
-                ]
-            )
-            template_message = TemplateSendMessage(
-                alt_text='草稿審核 (請在手機上查看)',
-                template=buttons_template
-            )
+        def process_text_draft():
+            from marketing_agent import generate_draft
+            # 產生草稿
+            draft_data, preview_msg = generate_draft(user_id, topic=user_msg)
             
-            line_bot_api.push_message(
-                user_id,
-                [TextSendMessage(text=preview_msg), template_message]
-            )
-        else:
-            line_bot_api.push_message(
-                user_id,
-                TextSendMessage(text=preview_msg) # 錯誤訊息
-            )
+            if draft_data:
+                # 傳送帶有確認按鈕的訊息
+                buttons_template = ButtonsTemplate(
+                    title='草稿審核',
+                    text='老闆，這是為您準備的草稿，請問要發布嗎？',
+                    actions=[
+                        PostbackAction(label='✅ 確認發布', data='action=approve_post'),
+                        PostbackAction(label='❌ 取消重寫', data='action=reject_post')
+                    ]
+                )
+                template_message = TemplateSendMessage(
+                    alt_text='草稿審核 (請在手機上查看)',
+                    template=buttons_template
+                )
+                
+                line_bot_api.push_message(
+                    user_id,
+                    [TextSendMessage(text=preview_msg), template_message]
+                )
+            else:
+                line_bot_api.push_message(
+                    user_id,
+                    TextSendMessage(text=preview_msg) # 錯誤訊息
+                )
+                
+        # 啟動背景執行緒，避免 LINE 逾時斷線
+        threading.Thread(target=process_text_draft).start()
         return
 
     # 一般客人模式
@@ -152,7 +156,7 @@ def handle_image(event):
         # 老闆傳照片，觸發 IG 九宮格模式
         line_bot_api.reply_message(
             event.reply_token,
-            TextSendMessage(text="【總監模式】收到照片！正在啟動九宮格裁切引擎與撰寫 IG 草稿，這需要一點時間，請稍候...")
+            TextSendMessage(text="【總監模式】收到照片！正在啟動裁切引擎與撰寫三平台草稿，這需要一點時間，請稍候...")
         )
         
         # 下載圖片
@@ -161,35 +165,39 @@ def handle_image(event):
         for chunk in message_content.iter_content():
             image_bytes += chunk
             
-        from marketing_agent import generate_draft
-        
-        # 產生草稿與切圖
-        draft_data, preview_msg = generate_draft(user_id, image_bytes=image_bytes)
-        
-        if draft_data:
-            # 傳送帶有確認按鈕的訊息
-            buttons_template = ButtonsTemplate(
-                title='IG 九宮格草稿審核',
-                text='老闆，九宮格已經切好準備就緒，請問要發布嗎？',
-                actions=[
-                    PostbackAction(label='✅ 確認發布', data='action=approve_post'),
-                    PostbackAction(label='❌ 取消重寫', data='action=reject_post')
-                ]
-            )
-            template_message = TemplateSendMessage(
-                alt_text='草稿審核 (請在手機上查看)',
-                template=buttons_template
-            )
+        def process_image_draft():
+            from marketing_agent import generate_draft
             
-            line_bot_api.push_message(
-                user_id,
-                [TextSendMessage(text=preview_msg), template_message]
-            )
-        else:
-            line_bot_api.push_message(
-                user_id,
-                TextSendMessage(text=preview_msg) # 錯誤訊息
-            )
+            # 產生草稿與切圖
+            draft_data, preview_msg = generate_draft(user_id, image_bytes=image_bytes)
+            
+            if draft_data:
+                # 傳送帶有確認按鈕的訊息
+                buttons_template = ButtonsTemplate(
+                    title='貼文草稿審核',
+                    text='老闆，九宮格跟文案都準備就緒，請問要發布嗎？',
+                    actions=[
+                        PostbackAction(label='✅ 確認發布', data='action=approve_post'),
+                        PostbackAction(label='❌ 取消重寫', data='action=reject_post')
+                    ]
+                )
+                template_message = TemplateSendMessage(
+                    alt_text='草稿審核 (請在手機上查看)',
+                    template=buttons_template
+                )
+                
+                line_bot_api.push_message(
+                    user_id,
+                    [TextSendMessage(text=preview_msg), template_message]
+                )
+            else:
+                line_bot_api.push_message(
+                    user_id,
+                    TextSendMessage(text=preview_msg) # 錯誤訊息
+                )
+                
+        # 啟動背景執行緒，避免 LINE 逾時斷線
+        threading.Thread(target=process_image_draft).start()
     else:
         # 一般客人傳照片
         line_bot_api.reply_message(
@@ -210,8 +218,12 @@ def handle_postback(event):
             event.reply_token,
             TextSendMessage(text="收到！正在為您執行正式發布，請稍候...")
         )
-        result_msg = execute_post(user_id)
-        line_bot_api.push_message(user_id, TextSendMessage(text=result_msg))
+        
+        def execute_post_in_background():
+            result_msg = execute_post(user_id)
+            line_bot_api.push_message(user_id, TextSendMessage(text=result_msg))
+            
+        threading.Thread(target=execute_post_in_background).start()
         
     elif data == 'action=reject_post':
         clear_draft(user_id)

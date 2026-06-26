@@ -63,14 +63,32 @@ def generate_draft(user_id, topic=None, image_bytes=None):
             if len(image_urls) != 9:
                 return None, "❌ 九宮格切圖或上傳失敗，請檢查 ImgBB API Key 或稍後再試。"
                 
+            logger.info("開始生成 FB 與 Threads 草稿...")
+            fb_prompt = f"""
+            你現在是「大熊老師與蘋果老師」的行銷總監。這是一個提供高品質抓周派對、活動主持的品牌。
+            老闆剛剛上傳了一張精彩的活動照片。
+            請幫我寫一篇適合發在 Facebook 粉絲團的溫馨長文。
+            語氣要專業、充滿感情，結尾必須附上預約網頁連結：https://bearapple-zhuazhou-party.vercel.app/
+            加上適合的 Hashtag。直接輸出貼文內容，不要有多餘對話。
+            """
+            fb_content = model.generate_content(fb_prompt).text.strip()
+            
+            threads_prompt = f"""
+            你現在是「大熊老師與蘋果老師」的行銷總監。老闆剛剛上傳了一張活動照片。
+            請寫一篇適合發在 Threads 的短平快文案。幽默、口語化。直接輸出貼文內容。
+            """
+            threads_content = model.generate_content(threads_prompt).text.strip()
+            
             draft_data = {
                 "type": "image",
                 "ig_content": ig_content,
-                "image_urls": image_urls
+                "image_urls": image_urls,
+                "fb_content": fb_content,
+                "threads_content": threads_content
             }
             save_draft(user_id, draft_data)
             
-            preview = f"【IG 九宮格草稿】\n\n{ig_content}\n\n(已為您切好 9 張高畫質小圖準備發布！)"
+            preview = f"【IG 草稿】\n{ig_content[:50]}...\n\n【FB 草稿】\n{fb_content[:50]}...\n\n【Threads 草稿】\n{threads_content[:50]}...\n\n(已為您切好 9 張高畫質小圖準備發布！)"
             return draft_data, preview
             
         elif topic:
@@ -114,11 +132,16 @@ def execute_post(user_id):
     try:
         if draft["type"] == "image":
             ig_success = post_to_instagram_grid(draft["image_urls"], draft["ig_content"])
+            fb_success = post_to_facebook(draft["fb_content"])
+            threads_success = post_to_threads(draft["threads_content"])
+            
             clear_draft(user_id)
-            if ig_success:
-                return "✅ IG 九宮格發布成功！快去您的 Instagram 看看華麗的版面吧！"
-            else:
-                return "❌ IG 發布失敗，請檢查系統日誌。"
+            
+            msg = "✅ 三平台發布完成！\n"
+            msg += f"📸 IG 九宮格：{'成功' if ig_success else '失敗'}\n"
+            msg += f"📘 Facebook：{'成功' if fb_success else '失敗'}\n"
+            msg += f"🧵 Threads：{'成功' if threads_success else '失敗'}"
+            return msg
                 
         elif draft["type"] == "text":
             fb_success = post_to_facebook(draft["fb_content"])
