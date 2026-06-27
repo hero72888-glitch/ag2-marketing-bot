@@ -73,21 +73,10 @@ def handle_message(event):
     if user_msg in secret_passwords:
         save_admin(user_id)
         
-        # 顯示發文模式選單
-        buttons_template = ButtonsTemplate(
-            title='總監模式啟動',
-            text='老闆好！請問這次要發布到哪些平台？選擇後請傳送照片！',
-            actions=[
-                PostbackAction(label='專攻 IG 九宮格', data='mode=ig'),
-                PostbackAction(label='發布 FB 與 Threads', data='mode=fb_threads'),
-                PostbackAction(label='三個我全都要', data='mode=all')
-            ]
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(text="老闆好！總監模式已啟動。\n現在您只要「直接傳送一張照片」，系統就會自動為您產生 FB、IG、Threads 的專屬防封鎖貼文喔！")
         )
-        template_message = TemplateSendMessage(
-            alt_text='選擇發布平台 (請在手機上查看)',
-            template=buttons_template
-        )
-        line_bot_api.reply_message(event.reply_token, template_message)
         return
 
     admins = load_admins()
@@ -167,18 +156,12 @@ def handle_image(event):
 
     admins = load_admins()
     if user_id in admins:
-        # 讀取老闆剛才選擇的模式，預設為 all
-        mode = user_states.get(user_id, 'all')
-        
-        mode_text = "三個平台"
-        if mode == 'ig':
-            mode_text = "IG 九宮格"
-        elif mode == 'fb_threads':
-            mode_text = "FB 與 Threads"
+        # 直接預設全平台模式
+        mode = 'all'
             
         line_bot_api.reply_message(
             event.reply_token,
-            TextSendMessage(text=f"【總監模式】收到照片！正在啟動 {mode_text} 草稿引擎，這需要一點時間，請稍候...")
+            TextSendMessage(text=f"【總監模式】收到照片！正在啟動全平台(FB/IG/Threads)草稿引擎，這需要一點時間，請稍候...")
         )
         
         # 下載圖片
@@ -232,21 +215,6 @@ def handle_postback(event):
     user_id = event.source.user_id
     data = event.postback.data
     logger.info(f"收到 Postback: {data} (來自: {user_id})")
-    
-    if data.startswith('mode='):
-        mode = data.split('=')[1]
-        user_states[user_id] = mode
-        mode_text = "三個平台"
-        if mode == 'ig':
-            mode_text = "IG 九宮格"
-        elif mode == 'fb_threads':
-            mode_text = "FB 與 Threads"
-            
-        line_bot_api.reply_message(
-            event.reply_token,
-            TextSendMessage(text=f"⚙️ 已為您切換至【{mode_text}】模式！\n請直接傳送您要發布的相片過來！")
-        )
-        return
     
     from marketing_agent import execute_post, clear_draft
     

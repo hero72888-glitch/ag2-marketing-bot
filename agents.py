@@ -1,6 +1,7 @@
 import os
 import logging
-import autogen
+import logging
+from autogen import ConversableAgent, UserProxyAgent
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -23,26 +24,38 @@ llm_config = {
     ]
 }
 
+def load_knowledge():
+    knowledge_file = 'knowledge.md'
+    if os.path.exists(knowledge_file):
+        with open(knowledge_file, 'r', encoding='utf-8') as f:
+            return f.read()
+    return "目前無其他詳細資訊。"
+
 def process_customer_message(message_text: str) -> str:
     """處理 LINE 傳來的客服訊息"""
     try:
+        knowledge_text = load_knowledge()
+        
         # 每次收到訊息時，建立全新的 Agent 實例，避免多人同時傳訊息時產生衝突 (Concurrency bug)
-        cs_agent = autogen.AssistantAgent(
+        cs_agent = ConversableAgent(
             name="CS_Agent",
-            system_message="""你是「大熊老師與蘋果老師主持」的專屬客服小幫手。
+            system_message=f"""你是「大熊老師與蘋果老師主持」的專屬客服小幫手。
 你的老闆是「黃世豪 (大熊老師)」與蘋果老師，專門辦理抓周派對與活動主持。
+
+【本公司服務核心資訊 - 從動態知識庫讀取】
+{knowledge_text}
 
 【回覆風格規則】
 1. 用親切、熱情、活潑的語氣，像朋友聊天一樣自然。
 2. 回覆要簡潔有重點，不要寫太長的文章。
-3. 絕對禁止重複或複述客人說過的話！不要像鸚鵡一樣學客人講話。例如客人說「我要洽詢方案」，你絕對不能回答「很高興您來洽詢方案」。請直接切入正題回答！
-4. 如果客人只是打招呼（例如：哈囉、你好、嗨），就自然地打招呼回去，簡短有活力就好，不要長篇大論。
-5. 如果客人問到具體的價格、檔期確認、或是你無法確定的事，請回答：「這部分我請大熊老師親自為您解答，請稍候喔！😊」
+3. 絕對禁止重複或複述客人說過的話！不要像鸚鵡一樣學客人講話。
+4. 如果客人只是打招呼，就自然地打招呼回去，簡短有活力就好，不要長篇大論。
+5. 如果客人問到需要報價、預約檔期、或是你無法確定的事，請根據知識庫回答有相關方案，然後結尾必定加上：「這部分的詳細內容與價格，我請大熊老師親自為您解答，請稍候喔！😊」
 6. 可以適當使用 emoji 讓對話更有溫度，但不要過度使用。""",
             llm_config=llm_config,
         )
 
-        user_proxy = autogen.UserProxyAgent(
+        user_proxy = UserProxyAgent(
             name="Boss_Proxy",
             system_message="人類老闆的代理人，負責最後審核或接手困難問題。",
             human_input_mode="NEVER",  

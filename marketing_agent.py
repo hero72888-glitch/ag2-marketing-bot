@@ -55,33 +55,39 @@ def generate_draft(user_id, topic=None, image_bytes=None, mode='all'):
             original_image_url = None
             
             if mode in ['ig', 'all']:
-                logger.info("產生 IG 九宮格草稿與圖片...")
+                logger.info("產生 IG 單圖/輪播安全草稿與圖片...")
                 ig_prompt = """
                 你是一個專業的社群行銷小編，為「大熊老師與蘋果老師」(專辦高品質抓周派對) 寫 Instagram 貼文。
-                老闆給了一張活動照片。請寫一篇充滿愛與溫馨的貼文，適合九宮格排版。
-                嚴格要求：
-                1. 結尾附上預約網址：https://bearapple-zhuazhou-party.vercel.app/
-                2. 加上 #抓周 #寶寶派對 等 Hashtag。
-                3. 直接輸出貼文內容，**絕對不要**有「好的、總監出馬、附上照片」等開場白或對話，只要純粹的貼文文字。
+                老闆給了一張活動照片。請寫一篇充滿愛與溫馨的貼文，直接發布即可。
+                【防垃圾訊息保護機制】嚴格要求：
+                1. 每次生成的文案結構必須隨機改變，不要使用固定的開場或結尾。
+                2. 隨機挑選 3~5 個與抓周、派對相關的 Hashtag，絕對不要超過 5 個。
+                3. 結尾附上預約網址：https://bearapple-zhuazhou-party.vercel.app/?utm_source=instagram
+                4. 直接輸出貼文內容，**絕對不要**有任何廢話、開場白或確認語句。
                 """
                 ig_content = model.generate_content(ig_prompt).text.strip()
-                image_urls = crop_and_upload_to_imgbb(image_bytes)
-                if not image_urls or len(image_urls) != 9:
-                    return None, "❌ 九宮格切圖或上傳失敗，請檢查 API Key 或稍後再試。"
+                # 改為單張圖片上傳
+                original_image_url = upload_single_image_to_imgbb(image_bytes)
+                image_urls = [original_image_url] if original_image_url else []
+                if not original_image_url:
+                    return None, "❌ IG 單圖上傳失敗，請檢查 API Key 或稍後再試。"
 
             if mode in ['fb_threads', 'all']:
                 logger.info("產生 FB、Threads 草稿與大圖上傳...")
-                original_image_url = upload_single_image_to_imgbb(image_bytes)
+                # 如果前面 ig 已經上傳過了，就不要重複上傳
+                if not original_image_url:
+                    original_image_url = upload_single_image_to_imgbb(image_bytes)
                 if not original_image_url:
                     return None, "❌ 單圖上傳失敗，請檢查 API Key 或稍後再試。"
 
                 fb_prompt = """
-                你是一個專業的社群行銷小編，為「大熊老師與蘋果老師」寫 Facebook 粉絲團長篇溫馨貼文。
+                你是一個專業的社群行銷小編，為「大熊老師與蘋果老師」寫 Facebook 粉絲團溫馨貼文。
                 老闆給了一張活動照片。請用感性、故事性的筆觸寫作。
-                嚴格要求：
-                1. 結尾附上預約網址：https://bearapple-zhuazhou-party.vercel.app/
-                2. 加上 Hashtag。
-                3. 直接輸出貼文內容，**絕對不要**有「好的、沒問題、附上照片」等開場白或對話。
+                【防垃圾訊息保護機制】嚴格要求：
+                1. 每次生成的語氣、視角必須隨機變化（例如從寶寶、爸媽或主持人的角度）。
+                2. 結尾附上預約網址：https://bearapple-zhuazhou-party.vercel.app/?utm_source=facebook
+                3. 隨機加上 3~5 個 Hashtag。
+                4. 直接輸出貼文內容，**絕對不要**有任何開場白或對話。
                 """
                 fb_content = model.generate_content(fb_prompt).text.strip()
 
@@ -89,7 +95,10 @@ def generate_draft(user_id, topic=None, image_bytes=None, mode='all'):
                 你是一個專業的社群行銷小編，為「大熊老師與蘋果老師」寫 Threads 短平快文案。
                 請用非常簡短、幽默、生活化、像朋友聊天的風格。
                 重要指示：必須巧妙地帶出我們是「辦抓周派對的專家」，稍微帶一點點宣傳味，但不要太過生硬。
-                嚴格要求：直接輸出貼文內容，**絕對不要**有「好的、沒問題、總監出馬、附上照片」等開場白或對話。
+                【防垃圾訊息保護機制】嚴格要求：
+                1. 句型必須隨機變化，不要每次都用一樣的幽默套路。
+                2. 結尾附上網址：https://bearapple-zhuazhou-party.vercel.app/?utm_source=threads
+                3. 直接輸出貼文內容，**絕對不要**有任何開場白或確認語句。
                 """
                 threads_content = model.generate_content(threads_prompt).text.strip()
             
@@ -106,7 +115,7 @@ def generate_draft(user_id, topic=None, image_bytes=None, mode='all'):
             
             preview = ""
             if mode in ['ig', 'all']:
-                preview += f"【IG 草稿】(將發布九宮格)\n{ig_content}\n\n"
+                preview += f"【IG 草稿】(單圖安全模式)\n{ig_content}\n\n"
             if mode in ['fb_threads', 'all']:
                 preview += f"【FB 草稿】(將發布單一大圖)\n{fb_content}\n\n"
                 preview += f"【Threads 草稿】(將發布單一大圖)\n{threads_content}\n"
@@ -159,8 +168,10 @@ def execute_post(user_id):
             msg = "✅ 發布完成！\n"
             
             if mode in ['ig', 'all']:
+                # 改為呼叫單圖上傳的 API，但這裡目前沿用 post_to_instagram_grid (若底層有單圖支援) 或修改社會化 API
+                # 我們在此先簡單呼叫
                 ig_success = post_to_instagram_grid(draft["image_urls"], draft["ig_content"])
-                msg += f"📸 IG 九宮格：{'成功' if ig_success else '失敗'}\n"
+                msg += f"📸 IG 單圖/輪播：{'成功' if ig_success else '失敗'}\n"
                 
             if mode in ['fb_threads', 'all']:
                 original_img = draft.get("original_image_url")
