@@ -62,7 +62,7 @@ def generate_draft(user_id, topic=None, image_bytes=None, mode='all'):
                 【防垃圾訊息保護機制】嚴格要求：
                 1. 每次生成的文案結構必須隨機改變，不要使用固定的開場或結尾。
                 2. 隨機挑選 3~5 個與抓周、派對相關的 Hashtag，絕對不要超過 5 個。
-                3. 結尾附上預約網址：https://bearapple-zhuazhou-party.vercel.app/?utm_source=instagram
+                3. 【IG 排版極度重要】：因為 IG 貼文無法點擊網址，所以**絕對不可以**放任何 https 開頭的網址。請在貼文結尾加上：「👉 歡迎點擊我們首頁的主頁連結，查看更多方案與預約檔期喔！💖」
                 4. 直接輸出貼文內容，**絕對不要**有任何廢話、開場白或確認語句。
                 """
                 ig_content = model.generate_content(ig_prompt).text.strip()
@@ -97,7 +97,7 @@ def generate_draft(user_id, topic=None, image_bytes=None, mode='all'):
                 重要指示：必須巧妙地帶出我們是「辦抓周派對的專家」，稍微帶一點點宣傳味，但不要太過生硬。
                 【防垃圾訊息保護機制】嚴格要求：
                 1. 句型必須隨機變化，不要每次都用一樣的幽默套路。
-                2. 結尾附上網址：https://bearapple-zhuazhou-party.vercel.app/?utm_source=threads
+                2. 【排版極度重要】：整個貼文只能在「最後一行」附上一次網址 (https://bearapple-zhuazhou-party.vercel.app/?utm_source=threads)，絕對不要重複貼網址！
                 3. 直接輸出貼文內容，**絕對不要**有任何開場白或確認語句。
                 4. 【極度重要限制】：總字數絕對不可以超過 400 字！超過發布會失敗！
                 """
@@ -137,6 +137,7 @@ def generate_draft(user_id, topic=None, image_bytes=None, mode='all'):
             你是一個專業的社群行銷小編。老闆給了一個貼文靈感：「{topic}」。
             請寫一篇適合發在 Threads 的短平快文案。保持幽默、生活化的口吻。
             重要指示：必須巧妙地帶出我們是「辦抓周派對的專家」，稍微帶一點點宣傳味，但不要像死板的廣告。
+            【排版極度重要】：整個貼文只能在「最後一行」附上一次網址 (https://bearapple-zhuazhou-party.vercel.app/)，絕對不要重複貼網址！
             嚴格要求：直接輸出貼文內容，**絕對不要**有任何開場白或多餘對話。
             【極度重要限制】：總字數絕對不可以超過 400 字！超過發布會失敗！
             """
