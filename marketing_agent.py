@@ -3,7 +3,7 @@ import logging
 import json
 import uuid
 import google.generativeai as genai
-from social_apis import post_to_facebook, post_to_threads, post_to_instagram_grid
+from social_apis import post_to_facebook, post_to_threads, post_to_instagram_single
 from image_processor import crop_and_upload_to_imgbb, upload_single_image_to_imgbb
 
 logger = logging.getLogger(__name__)
@@ -168,9 +168,12 @@ def execute_post(user_id):
             msg = "✅ 發布完成！\n"
             
             if mode in ['ig', 'all']:
-                # 改為呼叫單圖上傳的 API，但這裡目前沿用 post_to_instagram_grid (若底層有單圖支援) 或修改社會化 API
-                # 我們在此先簡單呼叫
-                ig_success = post_to_instagram_grid(draft["image_urls"], draft["ig_content"])
+                # 改為呼叫單圖上傳的 API
+                original_img = draft.get("original_image_url")
+                if original_img:
+                    ig_success = post_to_instagram_single(original_img, draft["ig_content"])
+                else:
+                    ig_success = False
                 msg += f"📸 IG 單圖/輪播：{'成功' if ig_success else '失敗'}\n"
                 
             if mode in ['fb_threads', 'all']:
