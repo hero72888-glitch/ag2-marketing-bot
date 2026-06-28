@@ -68,6 +68,9 @@ def post_to_threads(text, image_url=None):
         
     container_id = res1.json().get('id')
     
+    # 加上 2 秒緩衝，等待 Threads 伺服器處理完圖片，避免馬上發布報錯
+    time.sleep(2)
+    
     # 2. Publish the Container
     publish_url = f"https://graph.threads.net/v1.0/{THREADS_USER_ID}/threads_publish"
     pub_payload = {
@@ -83,61 +86,41 @@ def post_to_threads(text, image_url=None):
         logger.error(f"Threads 發布失敗: {res2.text}")
         return False
 
-# IG 九宮格功能
-def post_to_instagram_grid(image_urls, caption):
+# IG 單圖發布功能
+def post_to_instagram_single(image_url, caption):
     """
-    發布九宮格圖片到 Instagram
-    image_urls 必須是 9 張已經按正確順序 (1到9) 切割好的圖片網址列表。
-    為了讓 IG 頁面由左上到右下顯示拼圖，發布順序必須是逆向 (9, 8, 7... 1)。
-    只有最後一張 (也就是網格最左上角，順序 1) 會附上完整的文案 (caption)。
+    發布單張圖片到 Instagram
     """
     if not IG_USER_ID or not FB_PAGE_ACCESS_TOKEN:
         logger.error("缺少 IG_USER_ID 或 FB_PAGE_ACCESS_TOKEN")
         return False
         
-    if len(image_urls) != 9:
-        logger.error(f"九宮格圖片數量錯誤: 收到 {len(image_urls)} 張，應該要 9 張")
+    # 建立 IG Container
+    url = f"https://graph.facebook.com/v19.0/{IG_USER_ID}/media"
+    payload = {
+        'image_url': image_url,
+        'caption': caption,
+        'access_token': FB_PAGE_ACCESS_TOKEN
+    }
+    
+    res1 = requests.post(url, data=payload)
+    if res1.status_code != 200:
+        logger.error(f"IG Container 建立失敗: {res1.text}")
         return False
-
-    success = True
-    # 逆向迴圈，從最後一張 (索引 8) 發佈到第一張 (索引 0)
-    for i in range(8, -1, -1):
-        img_url = image_urls[i]
         
-        # 建立 IG Container
-        url = f"https://graph.facebook.com/v19.0/{IG_USER_ID}/media"
-        payload = {
-            'image_url': img_url,
-            'access_token': FB_PAGE_ACCESS_TOKEN
-        }
-        
-        # 只有最後一次發佈 (索引 0，對應九宮格左上角) 才加上文案
-        if i == 0:
-            payload['caption'] = caption
-            
-        res1 = requests.post(url, data=payload)
-        if res1.status_code != 200:
-            logger.error(f"IG Container 建立失敗 (圖片 {i+1}): {res1.text}")
-            success = False
-            continue
-            
-        container_id = res1.json().get('id')
-        
-        # 發布 IG Container
-        publish_url = f"https://graph.facebook.com/v19.0/{IG_USER_ID}/media_publish"
-        pub_payload = {
-            'creation_id': container_id,
-            'access_token': FB_PAGE_ACCESS_TOKEN
-        }
-        
-        res2 = requests.post(publish_url, data=pub_payload)
-        if res2.status_code == 200:
-            logger.info(f"IG 圖片 {i+1} 發布成功: {res2.json()}")
-        else:
-            logger.error(f"IG 圖片 {i+1} 發布失敗: {res2.text}")
-            success = False
-            
-        # 加上 2 秒緩衝，防止 IG API 限制與排版錯位
-        time.sleep(2)
-
-    return success
+    container_id = res1.json().get('id')
+    
+    # 發布 IG Container
+    publish_url = f"https://graph.facebook.com/v19.0/{IG_USER_ID}/media_publish"
+    pub_payload = {
+        'creation_id': container_id,
+        'access_token': FB_PAGE_ACCESS_TOKEN
+    }
+    
+    res2 = requests.post(publish_url, data=pub_payload)
+    if res2.status_code == 200:
+        logger.info(f"IG 圖片發布成功: {res2.json()}")
+        return True
+    else:
+        logger.error(f"IG 圖片發布失敗: {res2.text}")
+        return False
