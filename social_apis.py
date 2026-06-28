@@ -110,6 +110,9 @@ def post_to_instagram_single(image_url, caption):
         
     container_id = res1.json().get('id')
     
+    # 加上 5 秒緩衝，等待 IG 伺服器從 ImgBB 下載並處理完圖片，避免 "Media ID is not available" 錯誤
+    time.sleep(5)
+    
     # 發布 IG Container
     publish_url = f"https://graph.facebook.com/v19.0/{IG_USER_ID}/media_publish"
     pub_payload = {

@@ -99,6 +99,7 @@ def generate_draft(user_id, topic=None, image_bytes=None, mode='all'):
                 1. 句型必須隨機變化，不要每次都用一樣的幽默套路。
                 2. 結尾附上網址：https://bearapple-zhuazhou-party.vercel.app/?utm_source=threads
                 3. 直接輸出貼文內容，**絕對不要**有任何開場白或確認語句。
+                4. 【極度重要限制】：總字數絕對不可以超過 400 字！超過發布會失敗！
                 """
                 threads_content = model.generate_content(threads_prompt).text.strip()
             
@@ -137,6 +138,7 @@ def generate_draft(user_id, topic=None, image_bytes=None, mode='all'):
             請寫一篇適合發在 Threads 的短平快文案。保持幽默、生活化的口吻。
             重要指示：必須巧妙地帶出我們是「辦抓周派對的專家」，稍微帶一點點宣傳味，但不要像死板的廣告。
             嚴格要求：直接輸出貼文內容，**絕對不要**有任何開場白或多餘對話。
+            【極度重要限制】：總字數絕對不可以超過 400 字！超過發布會失敗！
             """
             threads_content = model.generate_content(threads_prompt).text.strip()
             
